@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs::File,
     io::{self, Result},
     println,
@@ -87,9 +88,26 @@ fn main() -> Result<()> {
     let content: Vec<char> = read_entire_xml_file("docs.gl/gl4/glClear.xhtml")?
         .chars()
         .collect();
+
+    let mut tf = HashMap::<String, usize>::new();
+
     let lexer = Lexer::new(&content);
     for token in lexer {
-        println!("{}", token.iter().collect::<String>())
+        let term = token.iter().collect::<String>();
+        if let Some(count) = tf.get_mut(&term) {
+            *count += 1;
+        } else {
+            tf.insert(term, 1);
+        }
     }
+
+    let mut stats = tf.iter().collect::<Vec<_>>();
+    stats.sort_by_key(|(_, f)| *f);
+    stats.reverse();
+
+    for (t, c) in stats.iter().take(10) {
+        println!("{t}: {c}")
+    }
+
     Ok(())
 }
