@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::{self, File},
     io::{self, BufReader, Result},
-    path::Path,
+    path::{Path, PathBuf},
     println,
 };
 
@@ -84,15 +84,18 @@ fn read_entire_xml_file(filepath: &Path) -> io::Result<String> {
 
     Ok(content)
 }
+type Termfrequency = HashMap<String, usize>;
+type Termfrequencyindex = HashMap<PathBuf, Termfrequency>;
 
 fn main() -> Result<()> {
     let dir_path = "docs.gl/gl4";
     let dir = fs::read_dir(dir_path)?;
+    let mut tf_index = Termfrequencyindex::new();
     for file in dir {
         let file_path = file?.path();
         let content: Vec<char> = read_entire_xml_file(&file_path)?.chars().collect();
 
-        let mut tf = HashMap::<String, usize>::new();
+        let mut tf = Termfrequency::new();
 
         let lexer = Lexer::new(&content);
         for token in lexer {
@@ -108,11 +111,15 @@ fn main() -> Result<()> {
         stats.sort_by_key(|(_, f)| *f);
         stats.reverse();
 
-        println!("{file_path:?}");
+        tf_index.insert(file_path, tf);
+    }
 
-        for (t, c) in stats.iter().take(10) {
-            println!("{t}: {c}")
-        }
+    let index_path = "index.json";
+    let index_file = File::create(index_path)?;
+    serde_json::to_writer(index_file, &tf_index)?;
+
+    for (path, tf) in tf_index {
+        println!("{path:?} has {count} unique tokens", count = tf.len())
     }
     Ok(())
 }
