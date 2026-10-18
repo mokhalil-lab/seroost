@@ -1,7 +1,8 @@
 use std::{
     collections::HashMap,
-    fs::File,
-    io::{self, Result},
+    fs::{self, File},
+    io::{self, BufReader, Result},
+    path::Path,
     println,
 };
 
@@ -67,10 +68,10 @@ impl<'a> Iterator for Lexer<'a> {
     }
 }
 
-fn read_entire_xml_file(filepath: &str) -> io::Result<String> {
+fn read_entire_xml_file(filepath: &Path) -> io::Result<String> {
     let file = File::open(filepath)?;
 
-    let er = EventReader::new(file);
+    let er = EventReader::new(BufReader::new(file));
 
     let mut content = String::new();
 
@@ -85,29 +86,33 @@ fn read_entire_xml_file(filepath: &str) -> io::Result<String> {
 }
 
 fn main() -> Result<()> {
-    let content: Vec<char> = read_entire_xml_file("docs.gl/gl4/glClear.xhtml")?
-        .chars()
-        .collect();
+    let dir_path = "docs.gl/gl4";
+    let dir = fs::read_dir(dir_path)?;
+    for file in dir {
+        let file_path = file?.path();
+        let content: Vec<char> = read_entire_xml_file(&file_path)?.chars().collect();
 
-    let mut tf = HashMap::<String, usize>::new();
+        let mut tf = HashMap::<String, usize>::new();
 
-    let lexer = Lexer::new(&content);
-    for token in lexer {
-        let term = token.iter().collect::<String>();
-        if let Some(count) = tf.get_mut(&term) {
-            *count += 1;
-        } else {
-            tf.insert(term, 1);
+        let lexer = Lexer::new(&content);
+        for token in lexer {
+            let term = token.iter().collect::<String>();
+            if let Some(count) = tf.get_mut(&term) {
+                *count += 1;
+            } else {
+                tf.insert(term, 1);
+            }
+        }
+
+        let mut stats = tf.iter().collect::<Vec<_>>();
+        stats.sort_by_key(|(_, f)| *f);
+        stats.reverse();
+
+        println!("{file_path:?}");
+
+        for (t, c) in stats.iter().take(10) {
+            println!("{t}: {c}")
         }
     }
-
-    let mut stats = tf.iter().collect::<Vec<_>>();
-    stats.sort_by_key(|(_, f)| *f);
-    stats.reverse();
-
-    for (t, c) in stats.iter().take(10) {
-        println!("{t}: {c}")
-    }
-
     Ok(())
 }
